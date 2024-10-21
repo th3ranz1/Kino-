@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Rezerwacji Miejsc w Kinie</title>
+    
+    
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #1c1c1c;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            min-height: 100vh;
+        }
+        h1, h2 {
+            color: #ff6347;
+            margin: 10px 0;
+            text-align: center;
+        }
+        h1 {
+            font-size: 36px;
+            font-weight: 700;
+        }
+        h2 {
+            font-size: 24px;
+            font-weight: 500;
+        }
+        .sala {
+            display: grid;
+            grid-template-columns: repeat(5, 60px);
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .miejsce {
+            width: 60px;
+            height: 60px;
+            background-color: #444;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.3s, transform 0.2s;
+            font-size: 16px;
+            color: #fff;
+            box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.5);
+        }
+        .miejsce:hover {
+            background-color: #ff6347;
+            transform: scale(1.1);
+        }
+        .zarezerwowane {
+            background-color: #e74c3c;
+            cursor: not-allowed;
+            transform: none;
+        }
+        button {
+            padding: 12px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #ff6347;
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+            transition: background-color 0.3s, transform 0.2s;
+            margin: 10px;
+            box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.5);
+        }
+        button:hover {
+            background-color: #ff4500;
+            transform: scale(1.05);
+        }
+        button:active {
+            transform: scale(0.95);
+        }
+        select {
+            padding: 10px;
+            font-size: 16px;
+            margin-top: 10px;
+            border-radius: 5px;
+            border: 2px solid #ff6347;
+            background-color: #333;
+            color: #fff;
+        }
+        #informacje, #cena {
+            margin-top: 20px;
+            font-size: 18px;
+            text-align: center;
+        }
+        .film-list {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .labels {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        .row-label {
+            font-weight: bold;
+            display: inline-block;
+            width: 60px;
+            text-align: center;
+        }
+        .bilet-row {
+            margin-top: 10px;
+        }
+
+        /* Center the logo and header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .header img {
+            width: 80px;
+            margin-right: 10px;
+            border-radius: 5px;
+        }
+
+        /* Center the button group */
+        .button-group {
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Add subtle background pattern */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(255,255,255,0.05) 1%, transparent 1%);
+            background-size: 40px 40px;
+            z-index: -1;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="cp_logo_og.webp" alt="Logotyp Kina">
+        <h1>System Rezerwacji Miejsc w Kinie</h1>
+    </div>
+
+    <div class="film-list">
+        <h2>Dostępne Filmy</h2>
+        <select id="filmSelect" onchange="zmienFilm()">
+            <option value="" data-wiek="0">Wybierz film</option>
+            <option value="film0" data-wiek="0">Film 0 (0+)</option>
+            <option value="film1" data-wiek="12">Film 1 (12+)</option>
+            <option value="film2" data-wiek="15">Film 2 (15+)</option>
+            <option value="film3" data-wiek="18">Film 3 (18+)</option>
+        </select>
+        <p id="filmWiek"></p>
+    </div>
+
+    <div>
+        <div class="labels">
+            <span class="row-label">A</span>
+            <span class="row-label">B</span>
+            <span class="row-label">C</span>
+            <span class="row-label">D</span>
+            <span class="row-label">E</span>
+        </div>
+        <div id="sala" class="sala"></div>
+    </div>
+
+    <div id="bilety"></div>
+
+    <div class="button-group">
+        <button onclick="wybierzLiczbe(1)">Rezerwuj 1 Miejsce</button>
+        <button onclick="wybierzLiczbe(2)">Rezerwuj 2 Miejsca</button>
+        <button onclick="wybierzLiczbe(3)">Rezerwuj 3 Miejsca</button>
+    </div>
+    
+    <button id="potwierdz" onclick="rezerwujMiejsca()">Potwierdź Rezerwację</button>
+    <div id="informacje"></div>
+    <div id="cena"></div>
+
+    <script>
+        const liczbaMiejsc = 25; // Liczba miejsc w sali
+        const miejsca = []; // Tablica do przechowywania stanu miejsc
+        const cenaNormalna = 30; // Cena biletu normalnego
+        const cenaDziecka = 15; // Cena biletu dla dziecka
+        const znizka = 5; // Zniżka na bilet z legitymacją
+        let liczbaDoRezerwacji = 1; // Liczba miejsc do rezerwacji
+        let wiekWymagany = 0; // Wymagany wiek na film
+
+        for (let i = 0; i < liczbaMiejsc; i++) {
+            miejsca.push({ zarezerwowane: false, typBiletu: null });
+        }
+
+        function stworzSale() {
+            const sala = document.getElementById("sala");
+            sala.innerHTML = '';
+
+            const rzad = 5;
+            const liczbaRzedow = liczbaMiejsc / rzad;
+
+            for (let i = 0; i < liczbaRzedow; i++) {
+                for (let j = 0; j < rzad; j++) {
+                    const miejsceDiv = document.createElement("div");
+                    miejsceDiv.classList.add("miejsce");
+                    miejsceDiv.innerText = (i * rzad + j + 1);
+                    miejsceDiv.addEventListener("click", () => wybierzMiejsce(i * rzad + j));
+                    sala.appendChild(miejsceDiv);
+                }
+            }
+        }
+
+        function zmienFilm() {
+            const select = document.getElementById("filmSelect");
+            wiekWymagany = parseInt(select.options[select.selectedIndex].dataset.wiek);
+            document.getElementById("filmWiek").innerText = `Wiek wymagany: ${wiekWymagany}+`;
+        }
+
+        function wybierzLiczbe(liczba) {
+            liczbaDoRezerwacji = liczba;
+        }
+
+        function wybierzMiejsce(index) {
+            if (!miejsca[index].zarezerwowane && wiekWymagany <= 18) {
+                miejsca[index].zarezerwowane = true;
+                stworzSale();
+            }
+        }
+
+        function rezerwujMiejsca() {
+            alert("Miejsca zostały zarezerwowane!");
+        }
+
+        window.onload = stworzSale;
+    </script>
+</body>
+</html>
