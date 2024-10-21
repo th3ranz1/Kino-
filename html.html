@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Rezerwacji Miejsc w Kinie</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .sala {
+            display: grid;
+            grid-template-columns: repeat(5, 50px);
+            gap: 10px;
+            margin: 0 auto;
+            margin-bottom: 20px;
+        }
+        .miejsce {
+            width: 50px;
+            height: 50px;
+            background-color: #ccc;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #000;
+        }
+        .zarezerwowane {
+            background-color: #f00;
+            cursor: not-allowed;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        #informacje {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+        #cena {
+            font-weight: bold;
+        }
+        .film-list {
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        .row-label {
+            font-weight: bold;
+            display: inline-block;
+            width: 50px;
+            margin: 5px;
+        }
+        .labels {
+            display: flex;
+            margin-bottom: 10px;
+        }
+        .bilet-row {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>System Rezerwacji Miejsc w Kinie</h1>
+    <div class="film-list">
+        <h2>Dostępne Filmy</h2>
+        <select id="filmSelect" onchange="zmienFilm()">
+            <option value="" data-wiek="0">Wybierz film</option>
+            <option value="film1" data-wiek="12">Film 1 (12+)</option>
+            <option value="film2" data-wiek="15">Film 2 (15+)</option>
+            <option value="film3" data-wiek="18">Film 3 (18+)</option>
+        </select>
+        <p id="filmWiek"></p>
+    </div>
+
+    <div>
+        <div class="labels">
+            <span class="row-label">A</span>
+            <span class="row-label">B</span>
+            <span class="row-label">C</span>
+            <span class="row-label">D</span>
+            <span class="row-label">E</span>
+        </div>
+        <div id="sala" class="sala"></div>
+    </div>
+
+    <div id="bilety"></div>
+    <div>
+        <button onclick="wybierzLiczbe(1)">Rezerwuj 1 Miejsce</button>
+        <button onclick="wybierzLiczbe(2)">Rezerwuj 2 Miejsca</button>
+        <button onclick="wybierzLiczbe(3)">Rezerwuj 3 Miejsca</button>
+    </div>
+    <button id="potwierdz" onclick="rezerwujMiejsca()">Potwierdź Rezerwację</button>
+    <div id="informacje"></div>
+    <div id="cena"></div>
+
+    <script>
+        const liczbaMiejsc = 25; // Liczba miejsc w sali
+        const miejsca = []; // Tablica do przechowywania stanu miejsc
+        const cenaNormalna = 30; // Cena biletu normalnego
+        const cenaDziecka = 15; // Cena biletu dla dziecka
+        const znizka = 5; // Zniżka na bilet z legitymacją
+        let liczbaDoRezerwacji = 1; // Liczba miejsc do rezerwacji
+        let wiekWymagany = 0; // Wymagany wiek na film
+
+        // Inicjalizacja miejsc
+        for (let i = 0; i < liczbaMiejsc; i++) {
+            miejsca.push({ zarezerwowane: false, typBiletu: null });
+        }
+
+        // Tworzenie miejsc w sali
+        function stworzSale() {
+            const sala = document.getElementById("sala");
+            sala.innerHTML = '';
+
+            const rzad = 5; // Liczba miejsc w rzędzie
+            const liczbaRzedow = liczbaMiejsc / rzad;
+
+            for (let i = 0; i < liczbaRzedow; i++) {
+                for (let j = 0; j < rzad; j++) {
+                    const miejsceDiv = document.createElement("div");
+                    miejsceDiv.classList.add("miejsce");
+                    miejsceDiv.innerText = (i * rzad + j + 1);
+                    miejsceDiv.addEventListener("click", () => wybierzMiejsce(i * rzad + j));
+                    sala.appendChild(miejsceDiv);
+                }
+            }
+        }
+
+        // Zmiana wybranego filmu
+        function zmienFilm() {
+            const select = document.getElementById("filmSelect");
+            wiekWymagany = parseInt(select.options[select.selectedIndex].getAttribute("data-wiek"));
+            document.getElementById("filmWiek").innerText = `Wymagany wiek: ${wiekWymagany}+`;
+        }
+
+        // Wybór liczby miejsc do rezerwacji
+        function wybierzLiczbe(liczba) {
+            liczbaDoRezerwacji = liczba;
+            document.getElementById("informacje").innerText = `Wybrano do rezerwacji ${liczbaDoRezerwacji} miejsce(-a).`;
+            utworzFormularzBiletow();
+        }
+
+        // Tworzenie formularza do wyboru typów biletów
+        function utworzFormularzBiletow() {
+            const biletyDiv = document.getElementById("bilety");
+            biletyDiv.innerHTML = '';
+            for (let i = 0; i < liczbaDoRezerwacji; i++) {
+                const biletRow = document.createElement("div");
+                biletRow.className = "bilet-row";
+                biletRow.innerHTML = `
+                    <label for="typBiletu${i}">Typ biletu ${i + 1}:</label>
+                    <select id="typBiletu${i}" onchange="obliczCene()">
+                        <option value="normalny">Normalny</option>
+                        <option value="dziecko">Dziecko</option>
+                        <option value="legitymacja">Z legitymacją</option>
+                    </select>
+                `;
+                biletyDiv.appendChild(biletRow);
+            }
+            obliczCene();
+        }
+
+        // Obliczanie ceny biletów
+        function obliczCene() {
+            let totalCena = 0;
+            for (let i = 0; i < liczbaDoRezerwacji; i++) {
+                const typBiletu = document.getElementById(`typBiletu${i}`).value;
+                let cenaBiletu;
+
+                switch (typBiletu) {
+                    case "dziecko":
+                        cenaBiletu = cenaDziecka;
+                        break;
+                    case "legitymacja":
+                        cenaBiletu = cenaNormalna - znizka;
+                        break;
+                    default:
+                        cenaBiletu = cenaNormalna;
+                        break;
+                }
+                totalCena += cenaBiletu;
+            }
+            document.getElementById("cena").innerText = `Cena za ${liczbaDoRezerwacji} miejsce(-a): ${totalCena} zł`;
+        }
+
+        // Rezerwacja miejsc
+        function rezerwujMiejsca() {
+            const wiekUzytkownika = prompt("Podaj swój wiek:");
+            if (wiekUzytkownika < wiekWymagany) {
+                alert("Nie możesz zarezerwować miejsc na ten film. Wymagany wiek to " + wiekWymagany + "+.");
+                return;
+            }
+
+            const wolneMiejsca = miejsca.map((miejsce, index) => miejsce.zarezerwowane ? null : index).filter(index => index !== null);
+
+            if (wolneMiejsca.length < liczbaDoRezerwacji) {
+                document.getElementById("informacje").innerText = "Brak wystarczającej liczby wolnych miejsc!";
+                return;
+            }
+
+            let zarezerwowaneMiejsca = [];
+            for (let j = 0; j < liczbaDoRezerwacji; j++) {
+                const miejsce = wolneMiejsca[j];
+                miejsca[miejsce].zarezerwowane = true;
+                miejsca[miejsce].typBiletu = document.getElementById(`typBiletu${j}`).value;
+                zarezerwowaneMiejsca.push(miejsce + 1); // +1, aby pokazać numer miejsca
+            }
+
+            aktualizujSale();
+            document.getElementById("informacje").innerText = `Zarezerwowano miejsca: ${zarezerwowaneMiejsca.join(', ')}`;
+        }
+
+        // Aktualizacja sali
+        function aktualizujSale() {
+            const sala = document.getElementById("sala");
+            const miejscaDivs = sala.getElementsByClassName("miejsce");
+
+            for (let i = 0; i < liczbaMiejsc; i++) {
+                miejscaDivs[i].className = "miejsce";
+                if (miejsca[i].zarezerwowane) {
+                    miejscaDivs[i].classList.add("zarezerwowane");
+                }
+            }
+        }
+
+        // Inicjalizacja sali po załadowaniu strony
+        stworzSale();
+    </script>
+</body>
+</html>
